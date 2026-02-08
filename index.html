@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ramadan Mali - Système Automatique</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .region-card { transition: transform 0.2s; }
+        .region-card:hover { transform: translateY(-2px); }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- Header & Date Selectors -->
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div>
+                <h1 class="text-2xl font-black text-slate-800 uppercase tracking-tighter">Calendrier Ramadan Mali</h1>
+                <p class="text-slate-500 text-sm font-medium">Génération automatique multizone</p>
+            </div>
+
+            <div class="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                <div class="text-center px-4">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Année Grégorienne</label>
+                    <input type="number" id="year-input" value="2026" class="bg-transparent font-black text-xl text-slate-700 w-20 text-center outline-none border-b-2 border-emerald-500">
+                </div>
+                <div class="h-10 w-px bg-slate-200"></div>
+                <div class="text-center px-4">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Année Hégirienne</label>
+                    <input type="number" id="hijri-input" value="1447" class="bg-transparent font-black text-xl text-slate-700 w-20 text-center outline-none border-b-2 border-emerald-500">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <!-- Sidebar: Controls & Logos -->
+            <div class="space-y-6">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                    <h3 class="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">Configuration</h3>
+                    
+                    <div class="space-y-4">
+                        <div onclick="document.getElementById('inL').click()" class="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center cursor-pointer hover:border-emerald-500 transition-colors">
+                            <span id="labelL" class="text-[10px] font-bold text-slate-400 uppercase">+ Logo Gauche</span>
+                        </div>
+                        <div onclick="document.getElementById('inR').click()" class="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center cursor-pointer hover:border-emerald-500 transition-colors">
+                            <span id="labelR" class="text-[10px] font-bold text-slate-400 uppercase">+ Logo Droite</span>
+                        </div>
+                        <input type="file" id="inL" class="hidden" accept="image/*" onchange="uploadLogo(this, 'L')">
+                        <input type="file" id="inR" class="hidden" accept="image/*" onchange="uploadLogo(this, 'R')">
+                    </div>
+
+                    <button id="btn-dl" onclick="processAll()" class="w-full mt-6 bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-emerald-600 transition-all shadow-lg active:scale-95 disabled:bg-slate-300">
+                        TÉLÉCHARGER LE(S) PDF
+                    </button>
+                    
+                    <div id="status-box" class="hidden mt-4 p-3 bg-emerald-50 rounded-xl">
+                        <div class="flex justify-between text-[10px] font-black mb-1">
+                            <span id="status-text" class="text-emerald-700 uppercase">En cours...</span>
+                            <span id="status-percent" class="text-emerald-700">0%</span>
+                        </div>
+                        <div class="w-full bg-emerald-200 h-1.5 rounded-full overflow-hidden">
+                            <div id="status-bar" class="bg-emerald-500 h-full transition-all" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main: Selection Area -->
+            <div class="lg:col-span-3">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="font-black text-slate-800 text-lg uppercase tracking-tight">Sélection des localités</h2>
+                    <div class="flex gap-2">
+                        <button onclick="checkAll(true)" class="text-[10px] font-bold bg-white px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50">Tout cocher</button>
+                        <button onclick="checkAll(false)" class="text-[10px] font-bold bg-white px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50">Décocher</button>
+                    </div>
+                </div>
+
+                <div id="regions-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Dynamic Regions Content -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+        let logoL = null, logoR = null;
+
+        const cerclesData = [
+            { t: "Kayes", r: "Kayes", lat: 14.44, lon: -11.44 }, { t: "Bafoulabé", r: "Kayes", lat: 13.81, lon: -10.83 }, { t: "Yélimané", r: "Kayes", lat: 15.12, lon: -10.56 }, { t: "Kéniéba", r: "Kayes", lat: 12.84, lon: -11.24 }, { t: "Ambidédi", r: "Kayes", lat: 14.30, lon: -11.40 }, { t: "Aourou", r: "Kayes", lat: 14.73, lon: -11.37 }, { t: "Diamou", r: "Kayes", lat: 13.96, lon: -11.00 }, { t: "Oussoubidiagna", r: "Kayes", lat: 14.12, lon: -10.15 }, { t: "Ségala", r: "Kayes", lat: 14.18, lon: -10.98 }, { t: "Sadiola", r: "Kayes", lat: 13.88, lon: -11.69 },
+            { t: "Koulikoro", r: "Koulikoro", lat: 12.86, lon: -7.55 }, { t: "Banamba", r: "Koulikoro", lat: 13.55, lon: -7.45 }, { t: "Kangaba", r: "Koulikoro", lat: 11.93, lon: -8.41 }, { t: "Kati", r: "Koulikoro", lat: 12.74, lon: -8.07 }, { t: "Kolokani", r: "Koulikoro", lat: 13.57, lon: -8.03 }, { t: "Nyamina", r: "Koulikoro", lat: 13.33, lon: -7.00 }, { t: "Siby", r: "Koulikoro", lat: 12.38, lon: -8.33 }, { t: "Neguela", r: "Koulikoro", lat: 12.83, lon: -8.41 },
+            { t: "Sikasso", r: "Sikasso", lat: 11.31, lon: -5.66 }, { t: "Kadiolo", r: "Sikasso", lat: 10.55, lon: -5.75 }, { t: "Danderesso", r: "Sikasso", lat: 11.42, lon: -5.25 }, { t: "Kignan", r: "Sikasso", lat: 12.05, lon: -5.66 }, { t: "Klela", r: "Sikasso", lat: 11.43, lon: -5.46 }, { t: "Lobougoula", r: "Sikasso", lat: 11.13, lon: -5.87 }, { t: "Loulouni", r: "Sikasso", lat: 10.82, lon: -5.60 }, { t: "Niena", r: "Sikasso", lat: 11.45, lon: -6.21 },
+            { t: "Ségou", r: "Ségou", lat: 13.43, lon: -6.21 }, { t: "Bla", r: "Ségou", lat: 12.95, lon: -5.75 }, { t: "Baraoueli", r: "Ségou", lat: 13.08, lon: -6.83 }, { t: "Niono", r: "Ségou", lat: 14.25, lon: -5.99 }, { t: "Macina", r: "Ségou", lat: 13.96, lon: -5.35 }, { t: "Dioro", r: "Ségou", lat: 13.31, lon: -6.36 }, { t: "Farako", r: "Ségou", lat: 12.33, lon: -5.46 }, { t: "Nampala", r: "Ségou", lat: 15.28, lon: -5.43 }, { t: "Sokolo", r: "Ségou", lat: 14.73, lon: -6.01 }, { t: "Markala", r: "Ségou", lat: 13.70, lon: -6.07 }, { t: "Sarro", r: "Ségou", lat: 14.15, lon: -5.13 },
+            { t: "Mopti", r: "Mopti", lat: 14.48, lon: -4.18 }, { t: "Djenné", r: "Mopti", lat: 13.90, lon: -4.55 }, { t: "Ténenkou", r: "Mopti", lat: 14.46, lon: -4.91 }, { t: "Youwarou", r: "Mopti", lat: 15.37, lon: -4.41 }, { t: "Konna", r: "Mopti", lat: 14.80, lon: -3.89 }, { t: "Korientzé", r: "Mopti", lat: 15.11, lon: -3.85 }, { t: "Sofara", r: "Mopti", lat: 14.00, lon: -4.24 }, { t: "Toguéré-Coumbé", r: "Mopti", lat: 14.92, lon: -4.59 },
+            { t: "Tombouctou", r: "Tombouctou", lat: 16.76, lon: -3.00 }, { t: "Goundam", r: "Tombouctou", lat: 16.42, lon: -3.67 }, { t: "Diré", r: "Tombouctou", lat: 16.27, lon: -3.38 }, { t: "Soumpi", r: "Tombouctou", lat: 15.84, lon: -4.12 }, { t: "Rharous", r: "Tombouctou", lat: 16.88, lon: -2.33 }, { t: "Bintagoungou", r: "Tombouctou", lat: 16.45, lon: -3.98 }, { t: "Saraféré", r: "Tombouctou", lat: 15.68, lon: -3.73 }, { t: "Bambara-Maoudé", r: "Tombouctou", lat: 15.93, lon: -2.48 }, { t: "Léré", r: "Tombouctou", lat: 15.71, lon: -4.92 }, { t: "Gossi", r: "Tombouctou", lat: 15.83, lon: -1.32 }, { t: "Tonka", r: "Tombouctou", lat: 16.14, lon: -3.81 }, { t: "Ber", r: "Tombouctou", lat: 16.92, lon: -2.47 }, { t: "Gargando", r: "Tombouctou", lat: 16.63, lon: -4.33 },
+            { t: "Gao", r: "Gao", lat: 16.27, lon: -0.04 }, { t: "Bourem", r: "Gao", lat: 16.94, lon: -0.35 }, { t: "Ansongo", r: "Gao", lat: 15.66, lon: 0.50 }, { t: "Almoustrat", r: "Gao", lat: 17.50, lon: 0.15 }, { t: "Bamba", r: "Gao", lat: 17.03, lon: -1.41 }, { t: "Ouattagouna", r: "Gao", lat: 15.02, lon: 0.73 }, { t: "Sony Aliber", r: "Gao", lat: 16.33, lon: 0.05 }, { t: "Djebock", r: "Gao", lat: 16.50, lon: 0.60 }, { t: "Talataye", r: "Gao", lat: 15.75, lon: 1.00 }, { t: "Téssit", r: "Gao", lat: 15.17, lon: -0.15 }, { t: "N'tillit", r: "Gao", lat: 15.60, lon: -0.40 }, { t: "Gabéro", r: "Gao", lat: 16.03, lon: -0.13 }, { t: "Ersane", r: "Gao", lat: 17.20, lon: 0.20 }, { t: "Tabankort", r: "Gao", lat: 17.40, lon: 0.35 }, { t: "Tin-Aouker", r: "Gao", lat: 16.75, lon: 0.55 }, { t: "Kassambéré", r: "Gao", lat: 15.55, lon: -0.20 },
+            { t: "Kidal", r: "Kidal", lat: 18.44, lon: 1.40 }, { t: "AbeÏbara", r: "Kidal", lat: 19.22, lon: 1.84 }, { t: "Tin-Essako", r: "Kidal", lat: 18.45, lon: 3.28 }, { t: "Tessalit", r: "Kidal", lat: 20.20, lon: 0.99 }, { t: "Achibogho", r: "Kidal", lat: 19.10, lon: 1.30 }, { t: "Anéfif", r: "Kidal", lat: 18.04, lon: 0.60 }, { t: "Timétrine", r: "Kidal", lat: 19.20, lon: 0.20 }, { t: "Aguel-Hoc", r: "Kidal", lat: 19.46, lon: 0.85 }, { t: "Takalote", r: "Kidal", lat: 18.25, lon: 1.55 },
+            { t: "Taoudéni", r: "Taoudéni", lat: 22.68, lon: -3.98 }, { t: "Araouane", r: "Taoudéni", lat: 18.90, lon: -3.53 }, { t: "Foum-Elba", r: "Taoudéni", lat: 21.30, lon: -3.00 }, { t: "Boû-Djebeha", r: "Taoudéni", lat: 18.50, lon: -2.80 }, { t: "Al-Ourche", r: "Taoudéni", lat: 19.00, lon: -3.20 }, { t: "Achouratt", r: "Taoudéni", lat: 20.50, lon: -3.50 },
+            { t: "Ménaka", r: "Ménaka", lat: 15.92, lon: 2.40 }, { t: "Tidermène", r: "Ménaka", lat: 16.50, lon: 2.70 }, { t: "Inékar", r: "Ménaka", lat: 15.80, lon: 3.10 }, { t: "Andéramboukane", r: "Ménaka", lat: 15.42, lon: 3.03 }, { t: "Anouzagrène", r: "Ménaka", lat: 16.10, lon: 2.10 }, { t: "Inlamawane (Fanfi)", r: "Ménaka", lat: 16.00, lon: 2.60 },
+            { t: "Nioro", r: "Nioro", lat: 15.23, lon: -9.58 }, { t: "Diema", r: "Nioro", lat: 14.53, lon: -9.19 }, { t: "Diangounte Camara", r: "Nioro", lat: 14.73, lon: -9.58 }, { t: "Sandare", r: "Nioro", lat: 14.43, lon: -10.05 }, { t: "Troungoumbe", r: "Nioro", lat: 15.35, lon: -9.35 }, { t: "Bema", r: "Nioro", lat: 15.10, lon: -9.00 },
+            { t: "Kita", r: "Kita", lat: 13.03, lon: -9.48 }, { t: "Sagabari", r: "Kita", lat: 13.25, lon: -9.65 }, { t: "Sébékoro", r: "Kita", lat: 13.08, lon: -9.15 }, { t: "Toukoto", r: "Kita", lat: 13.33, lon: -9.35 }, { t: "Séféto", r: "Kita", lat: 13.90, lon: -9.45 }, { t: "Sirakoro", r: "Kita", lat: 12.80, lon: -9.25 },
+            { t: "Dioïla", r: "Dioïla", lat: 12.48, lon: -6.78 }, { t: "Banco", r: "Dioïla", lat: 12.35, lon: -6.95 }, { t: "Béléko", r: "Dioïla", lat: 12.65, lon: -6.45 }, { t: "Fana", r: "Dioïla", lat: 12.74, lon: -6.55 }, { t: "Massigui", r: "Dioïla", lat: 12.15, lon: -6.80 }, { t: "Ména", r: "Dioïla", lat: 12.55, lon: -6.25 },
+            { t: "Nara", r: "Nara", lat: 15.17, lon: -7.28 }, { t: "Ballé", r: "Nara", lat: 15.35, lon: -7.85 }, { t: "Dilly", r: "Nara", lat: 15.00, lon: -7.70 }, { t: "Mourdiah", r: "Nara", lat: 14.48, lon: -7.47 }, { t: "Guiré", r: "Nara", lat: 14.85, lon: -7.20 }, { t: "Fallou", r: "Nara", lat: 14.65, lon: -7.10 },
+            { t: "Bougouni", r: "Bougouni", lat: 11.41, lon: -7.48 }, { t: "Yanfolila", r: "Bougouni", lat: 11.17, lon: -8.15 }, { t: "Kolondièba", r: "Bougouni", lat: 11.08, lon: -6.89 }, { t: "Garalo", r: "Bougouni", lat: 10.95, lon: -7.43 }, { t: "Koumantou", r: "Bougouni", lat: 11.45, lon: -7.03 }, { t: "Sélingué", r: "Bougouni", lat: 11.63, lon: -8.24 }, { t: "Ouelessebougou", r: "Bougouni", lat: 12.06, lon: -7.90 }, { t: "Kadiana", r: "Bougouni", lat: 10.65, lon: -6.90 }, { t: "Fakola", r: "Bougouni", lat: 10.85, lon: -6.50 }, { t: "Dogo", r: "Bougouni", lat: 11.35, lon: -7.80 },
+            { t: "Koutiala", r: "Koutiala", lat: 12.39, lon: -5.46 }, { t: "Yorosso", r: "Koutiala", lat: 12.35, lon: -4.78 }, { t: "M’Péssoba", r: "Koutiala", lat: 12.67, lon: -5.55 }, { t: "Molobala", r: "Koutiala", lat: 12.20, lon: -5.10 }, { t: "Koury", r: "Koutiala", lat: 12.25, lon: -4.85 }, { t: "Konséguéla", r: "Koutiala", lat: 12.60, lon: -5.25 }, { t: "Kouniana", r: "Koutiala", lat: 12.45, lon: -5.75 }, { t: "Zangasso", r: "Koutiala", lat: 12.15, lon: -5.45 },
+            { t: "San", r: "San", lat: 13.30, lon: -4.90 }, { t: "Tominian", r: "San", lat: 13.28, lon: -4.48 }, { t: "Kimparana", r: "San", lat: 12.83, lon: -4.85 }, { t: "Yangasso", r: "San", lat: 13.50, lon: -4.65 }, { t: "Fangasso", r: "San", lat: 13.15, lon: -4.25 }, { t: "Mandiakuy", r: "San", lat: 13.35, lon: -4.15 }, { t: "Sy", r: "San", lat: 13.55, lon: -4.95 },
+            { t: "Douentza", r: "Douentza", lat: 14.99, lon: -2.95 }, { t: "Boré", r: "Douentza", lat: 14.90, lon: -3.20 }, { t: "Hombori", r: "Douentza", lat: 15.28, lon: -1.70 }, { t: "Ngouna", r: "Douentza", lat: 15.05, lon: -2.85 }, { t: "Mondoro", r: "Douentza", lat: 14.68, lon: -1.95 }, { t: "Boni", r: "Douentza", lat: 15.15, lon: -2.25 },
+            { t: "Bandiagara", r: "Bandiagara", lat: 14.34, lon: -3.61 }, { t: "Koro", r: "Bandiagara", lat: 14.07, lon: -3.08 }, { t: "Bankass", r: "Bandiagara", lat: 13.88, lon: -3.63 }, { t: "Kendie", r: "Bandiagara", lat: 14.65, lon: -3.50 }, { t: "Ningari", r: "Bandiagara", lat: 14.45, lon: -3.35 }, { t: "Diallassagou", r: "Bandiagara", lat: 13.65, lon: -3.40 }, { t: "Sangha", r: "Bandiagara", lat: 14.47, lon: -3.32 }, { t: "Kani", r: "Bandiagara", lat: 14.25, lon: -3.75 }, { t: "Sokoura", r: "Bandiagara", lat: 14.15, lon: -3.45 },
+            { t: "Bamako", r: "Bamako", lat: 12.63, lon: -8.00 }
+        ];
+
+        // Construction du dictionnaire par régions
+        const regions = {};
+        cerclesData.forEach(item => {
+            if(!regions[item.r]) regions[item.r] = [];
+            regions[item.r].push(item);
+        });
+
+        // Affichage des cartes par région
+        const grid = document.getElementById('regions-grid');
+        Object.keys(regions).sort().forEach(r => {
+            const card = document.createElement('div');
+            card.className = "region-card bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col";
+            card.innerHTML = `
+                <div class="flex items-center justify-between mb-4 border-b border-slate-50 pb-2">
+                    <span class="font-black text-xs uppercase text-slate-800 tracking-wider">${r}</span>
+                    <button onclick="toggleCard('${r}', true)" class="text-[9px] font-bold text-emerald-600 uppercase">Tout</button>
+                </div>
+                <div class="space-y-2 overflow-y-auto max-h-48 custom-scrollbar pr-2">
+                    ${regions[r].sort((a,b)=>a.t.localeCompare(b.t)).map(c => `
+                        <label class="flex items-center gap-3 cursor-pointer group">
+                            <input type="checkbox" value="${c.t}" data-reg="${r}" class="c-check w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300">
+                            <span class="text-[11px] font-medium text-slate-600 group-hover:text-slate-900">${c.t}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+
+        function toggleCard(r, val) {
+            document.querySelectorAll(`.c-check[data-reg="${r}"]`).forEach(cb => cb.checked = val);
+        }
+
+        function checkAll(val) {
+            document.querySelectorAll('.c-check').forEach(cb => cb.checked = val);
+        }
+
+        function uploadLogo(input, side) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if(side === 'L') logoL = e.target.result; else logoR = e.target.result;
+                    document.getElementById(`label${side}`).innerText = "Logo prêt ✓";
+                    document.getElementById(`label${side}`).className = "text-[10px] font-black text-emerald-600 uppercase";
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        async function processAll() {
+            const selected = Array.from(document.querySelectorAll('.c-check:checked')).map(cb => cb.value);
+            if(selected.length === 0) return alert("Choisissez au moins une localité");
+
+            const year = parseInt(document.getElementById('year-input').value);
+            const hijri = parseInt(document.getElementById('hijri-input').value);
+            const statusBox = document.getElementById('status-box');
+            const btn = document.getElementById('btn-dl');
+            
+            statusBox.classList.remove('hidden');
+            btn.disabled = true;
+
+            for(let i=0; i<selected.length; i++) {
+                const name = selected[i];
+                const pct = Math.round(((i + 1) / selected.length) * 100);
+                
+                document.getElementById('status-bar').style.width = pct + "%";
+                document.getElementById('status-percent').innerText = pct + "%";
+                document.getElementById('status-text').innerText = name;
+
+                const c = cerclesData.find(x => x.t === name);
+                const days = await fetchTimes(c, year);
+                if(days) createPDF(c, days, year, hijri);
+                
+                // Petit délai pour éviter de saturer le CPU/Mémoire
+                await new Promise(r => setTimeout(r, 400));
+            }
+
+            document.getElementById('status-text').innerText = "Terminé !";
+            btn.disabled = false;
+            setTimeout(() => statusBox.classList.add('hidden'), 3000);
+        }
+
+        async function fetchTimes(c, year) {
+            try {
+                // On récupère fév, mars et avril pour couvrir tout ramadan selon les années
+                const [m2, m3, m4] = await Promise.all([
+                    fetch(`https://api.aladhan.com/v1/calendar?latitude=${c.lat}&longitude=${c.lon}&method=12&year=${year}&month=2`).then(r => r.json()),
+                    fetch(`https://api.aladhan.com/v1/calendar?latitude=${c.lat}&longitude=${c.lon}&method=12&year=${year}&month=3`).then(r => r.json()),
+                    fetch(`https://api.aladhan.com/v1/calendar?latitude=${c.lat}&longitude=${c.lon}&method=12&year=${year}&month=4`).then(r => r.json())
+                ]);
+                return [...m2.data, ...m3.data, ...m4.data].filter(d => 
+                    d.date.hijri.month.number === 9 || 
+                    (d.date.hijri.month.number === 10 && parseInt(d.date.hijri.day) === 1)
+                );
+            } catch(e) { return null; }
+        }
+
+        function createPDF(c, days, year, hijri) {
+            const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+            
+            if(logoL) doc.addImage(logoL, 'PNG', 10, 5, 22, 11);
+            if(logoR) doc.addImage(logoR, 'PNG', 265, 5, 22, 11);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(13);
+            
+            // Intelligence de l'en-tête : Cercle vs Région
+            let headerName = "";
+            if (c.t === "Bamako") {
+                headerName = "BAMAKO";
+            } else if (c.t === c.r) {
+                headerName = c.t.toUpperCase(); // C'est une région seule
+            } else {
+                headerName = `${c.t.toUpperCase()} (${c.r.toUpperCase()})`; // C'est un cercle dans une région
+            }
+            
+            const title = `HORAIRES DU RAMADAN POUR ${headerName} ${hijri} HEGIRE – ${year}`;
+            doc.text(title, 148, 12, { align: 'center' });
+
+            const body = days.map(day => {
+                const t = day.timings;
+                const f = t.Fajr.split(' ')[0];
+                const s = t.Sunrise.split(' ')[0];
+                const m = t.Maghrib.split(' ')[0];
+                const g = day.date.gregorian;
+                const hd = parseInt(day.date.hijri.day);
+                const hm = parseInt(day.date.hijri.month.number);
+
+                const jFr = { Monday:'Lundi', Tuesday:'Mardi', Wednesday:'Mercredi', Thursday:'Jeudi', Friday:'Vendredi', Saturday:'Samedi', Sunday:'Dimanche' };
+                const mFr = { January:'janvier', February:'février', March:'mars', April:'avril' };
+
+                const addMins = (ts, mn) => {
+                    const [h, m] = ts.split(':').map(Number);
+                    const d = new Date(); d.setHours(h, m + mn, 0);
+                    return d.getHours().toString().padStart(2, '0') + ":" + d.getMinutes().toString().padStart(2, '0');
+                };
+
+                return [
+                    jFr[g.weekday.en], `${g.day}-${mFr[g.month.en]}`, hm === 10 ? "1 Chawal" : hd,
+                    "0", "0", f.split(':')[0], f.split(':')[1],
+                    addMins(f, -15).split(':')[0], addMins(f, -15).split(':')[1],
+                    f.split(':')[0], f.split(':')[1],
+                    s.split(':')[0], s.split(':')[1],
+                    m.split(':')[0], m.split(':')[1]
+                ];
+            });
+
+            doc.autoTable({
+                startY: 18,
+                head: [
+                    [{content: 'JOURS', rowSpan: 2}, {content: 'DATES', colSpan: 2}, {content: 'SOHOUR', colSpan: 4}, {content: 'AÇÇALATOU KHAYROUN\nMINA NAWMI', colSpan: 2}, {content: 'PRIERE DU SOUBOUHI', colSpan: 2}, {content: 'LEVER DU SOLEIL', colSpan: 2}, {content: 'COUCHER DU SOLEIL', colSpan: 2}],
+                    ['MOIS', 'RAMADAN', 'HEURE', 'MIN', 'HEURE', 'MIN', 'HEURE', 'MIN', 'HEURE', 'MIN', 'HEURE', 'MIN', 'HEURE', 'MIN']
+                ],
+                body: body,
+                theme: 'grid',
+                styles: { fontSize: 7.5, cellPadding: 0.6, halign: 'center', valign: 'middle', lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0], font: "helvetica", fontStyle: 'bold' },
+                headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontSize: 6.5, lineWidth: 0.2 },
+                columnStyles: { 0: { halign: 'left', fontStyle: 'normal', cellWidth: 22 } },
+                didParseCell: (d) => {
+                    if (d.section === 'body' && d.column.index === 2) {
+                        const val = parseInt(d.cell.raw);
+                        if ([1, 2, 29, 30].includes(val) && !String(d.cell.raw).includes("Chawal")) {
+                            d.cell.styles.fillColor = [118, 147, 60]; 
+                            d.cell.styles.textColor = [255, 255, 255];
+                        }
+                    }
+                },
+                margin: { left: 8, right: 8 }
+            });
+
+            const fy = doc.lastAutoTable.finalY + 5;
+            doc.setFontSize(8.5); doc.setFont("helvetica", "bold");
+            doc.text("PRINCIPE DE CALCUL DES HORAIRES", 8, fy);
+            doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+            doc.text("Intervalle entre la fin du SOHOUR ( repas terminal de la nuit ) et le galatou Soubouhi = 30 minutes", 8, fy + 4);
+            doc.text("Intervalle entre la galatou khayroun mina nawmi et l'annonce de la prière du Soubouhi = 15 minutes", 8, fy + 8);
+            doc.text("Intervalle entre la fin SOHOUR ( repas terminal de la nuit ) et la galatou khayroun mina nawmi = 15 minutes", 8, fy + 12);
+            doc.text("Intervalle entre la fin du SOHOUR ( repas terminal de la nuit ) et le lever du soleil = 1 heure 22 minutes", 8, fy + 16);
+            doc.setFont("helvetica", "bold");
+            doc.text("NB: Les rites du Ramadan ne modifient pas l'intervalle entre Maghreb et Icha qui est au moins d'une (1) heure.", 8, fy + 21);
+
+            doc.save(`Ramadan_${year}_${c.t}.pdf`);
+        }
+    </script>
+</body>
+</html>
