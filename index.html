@@ -72,8 +72,7 @@
                 </div>
 
                 <div class="bg-amber-50 p-4 rounded-2xl border border-amber-100">
-                    <h4 class="text-[10px] font-black text-amber-800 uppercase mb-2">Contrôle de conformité</h4>
-                    <p class="text-[9px] text-amber-700 leading-tight mb-2">Les calculs sont ré-exécutés pour chaque ville en fonction de son heure locale de lever de soleil :</p>
+                    <h4 class="text-[10px] font-black text-amber-800 uppercase mb-2">Algorithme Malien</h4>
                     <ul class="text-[9px] text-amber-700 space-y-1 font-bold italic">
                         <li>• Fin Sohour = Lever - 1h22</li>
                         <li>• Khayroun = Sohour + 15 min</li>
@@ -93,7 +92,7 @@
                 </div>
 
                 <div id="regions-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <!-- Les cartes des régions sont générées ici -->
+                    <!-- Dynamic Regions Content -->
                 </div>
             </div>
         </div>
@@ -126,14 +125,12 @@
             { t: "Bamako", r: "Bamako", lat: 12.63, lon: -8.00 }
         ];
 
-        // Regroupement par région
         const regions = {};
         cerclesData.forEach(item => {
             if(!regions[item.r]) regions[item.r] = [];
             regions[item.r].push(item);
         });
 
-        // Construction visuelle de la grille
         const grid = document.getElementById('regions-grid');
         Object.keys(regions).sort().forEach(r => {
             const card = document.createElement('div');
@@ -197,8 +194,6 @@
                 const c = cerclesData.find(x => x.t === name);
                 const days = await fetchTimes(c, year);
                 if(days) createPDF(c, days, year, hijri);
-                
-                // Petit délai pour la stabilité du navigateur lors des téléchargements massifs
                 await new Promise(r => setTimeout(r, 450));
             }
 
@@ -218,13 +213,9 @@
                     d.date.hijri.month.number === 9 || 
                     (d.date.hijri.month.number === 10 && parseInt(d.date.hijri.day) === 1)
                 );
-            } catch(e) { 
-                console.error("Erreur API pour " + c.t, e);
-                return null; 
-            }
+            } catch(e) { return null; }
         }
 
-        // LE CŒUR DE LA RÈGLE DE CALCUL
         function manipulateTime(timeStr, offsetMinutes) {
             const [h, m] = timeStr.split(':').map(Number);
             const date = new Date();
@@ -248,20 +239,15 @@
             const title = `HORAIRES DU RAMADAN POUR ${headerName} ${hijri} HEGIRE – ${year}`;
             doc.text(title, 148, 12, { align: 'center' });
 
-            // Application de la logique à chaque jour pour la ville sélectionnée
             const body = days.map(day => {
                 const t = day.timings;
                 const sunriseRaw = t.Sunrise.split(' ')[0];
                 const maghribRaw = t.Maghrib.split(' ')[0];
                 
-                // EXECUTION DES RÈGLES STRICTES
-                // 1. Fin Sohour = Lever - 82 mins
+                // CALCULS MALIENS (ANCRE SUR LEVER DU SOLEIL)
                 const sohour = manipulateTime(sunriseRaw, -82); 
-                // 2. Khayroun = Sohour + 15 mins
                 const khayroun = manipulateTime(`${sohour.h}:${sohour.m}`, 15); 
-                // 3. Soubouhi = Sohour + 30 mins
                 const soubouhi = manipulateTime(`${sohour.h}:${sohour.m}`, 30); 
-                // 4. Lever et Coucher bruts
                 const lever = manipulateTime(sunriseRaw, 0);
                 const coucher = manipulateTime(maghribRaw, 0);
 
@@ -270,13 +256,14 @@
                 const hm = parseInt(day.date.hijri.month.number);
 
                 const jFr = { Monday:'Lundi', Tuesday:'Mardi', Wednesday:'Mercredi', Thursday:'Jeudi', Friday:'Vendredi', Saturday:'Samedi', Sunday:'Dimanche' };
-                const mFr = { January:'janv.', February:'févr.', March:'mars', April:'avril', May:'mai' };
+                const mFr = { January:'janvier', February:'février', March:'mars', April:'avril', May:'mai' };
 
+                // Retourne exactement 15 éléments pour correspondre au header colSpan 4
                 return [
                     jFr[g.weekday.en], 
                     `${g.day}-${mFr[g.month.en]}`, 
                     hm === 10 ? "1 Chawal" : hd,
-                    sohour.h, sohour.m,
+                    "0", "0", sohour.h, sohour.m, // On garde le format "0","0" d'origine + sohour
                     khayroun.h, khayroun.m,
                     soubouhi.h, soubouhi.m,
                     lever.h, lever.m,
@@ -290,19 +277,20 @@
                     [
                         {content: 'JOURS', rowSpan: 2}, 
                         {content: 'DATES', colSpan: 2}, 
-                        {content: 'FIN SOHOUR', colSpan: 2}, 
+                        {content: 'SOHOUR', colSpan: 4}, // Restauration colSpan 4
                         {content: 'AÇÇALATOU KHAYROUN\nMINA NAWMI', colSpan: 2}, 
                         {content: 'PRIERE DU SOUBOUHI', colSpan: 2}, 
                         {content: 'LEVER DU SOLEIL', colSpan: 2}, 
                         {content: 'COUCHER DU SOLEIL', colSpan: 2}
                     ],
-                    ['MOIS', 'RAMADAN', 'H', 'MIN', 'H', 'MIN', 'H', 'MIN', 'H', 'MIN', 'H', 'MIN']
+                    // Restauration "HEURE" et "MIN" complets
+                    ['MOIS', 'RAMADAN', 'HEURE', 'MIN', 'HEURE', 'MIN', 'HEURE', 'MIN', 'HEURE', 'MIN', 'HEURE', 'MIN', 'HEURE', 'MIN']
                 ],
                 body: body,
                 theme: 'grid',
                 styles: { fontSize: 7.5, cellPadding: 0.6, halign: 'center', valign: 'middle', lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0], font: "helvetica", fontStyle: 'bold' },
-                headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontSize: 6, lineWidth: 0.2 },
-                columnStyles: { 0: { halign: 'left', fontStyle: 'normal', cellWidth: 20 } },
+                headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontSize: 6.5, lineWidth: 0.2 }, // Restauration 6.5
+                columnStyles: { 0: { halign: 'left', fontStyle: 'normal', cellWidth: 22 } }, // Restauration 22
                 didParseCell: (d) => {
                     if (d.section === 'body' && d.column.index === 2) {
                         const val = parseInt(d.cell.raw);
@@ -317,14 +305,14 @@
 
             const fy = doc.lastAutoTable.finalY + 5;
             doc.setFontSize(8.5); doc.setFont("helvetica", "bold");
-            doc.text("PRINCIPE DE CALCUL DES HORAIRES (VÉRIFIÉ)", 8, fy);
-            doc.setFont("helvetica", "normal"); doc.setFontSize(7);
-            doc.text("1. Intervalle entre la fin du SOHOUR (repas terminal de la nuit) et la solatou Soubouhi = 30 minutes", 8, fy + 4);
-            doc.text("2. Intervalle entre la solatou khayroun mina nawmi et l'annonce de la prière du Soubouhi = 15 minutes", 8, fy + 8);
-            doc.text("3. Intervalle entre la fin SOHOUR (repas terminal de la nuit) et la solatou khayroun mina nawmi = 15 minutes", 8, fy + 12);
-            doc.text("4. Intervalle entre la fin du SOHOUR (repas terminal de la nuit) et le lever du soleil = 1 heure 22 minutes (Ancre du calcul)", 8, fy + 16);
+            doc.text("PRINCIPE DE CALCUL DES HORAIRES", 8, fy);
+            doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+            doc.text("Intervalle entre la fin du SOHOUR ( repas terminal de la nuit ) et la solatou Soubouhi = 30 minutes", 8, fy + 4);
+            doc.text("Intervalle entre la solatou khayroun mina nawmi et l'annonce de la prière du Soubouhi = 15 minutes", 8, fy + 8);
+            doc.text("Intervalle entre la fin SOHOUR ( repas terminal de la nuit ) et la solatou khayroun mina nawmi = 15 minutes", 8, fy + 12);
+            doc.text("Intervalle entre la fin du SOHOUR ( repas terminal de la nuit ) et le lever du soleil = 1 heure 22 minutes", 8, fy + 16);
             doc.setFont("helvetica", "bold");
-            doc.text("NB: Les rites du Ramadan ne modifient pas l'intervalle entre Maghreb et Icha qui reste d'au moins une (1) heure.", 8, fy + 21);
+            doc.text("NB: Les rites du Ramadan ne modifient pas l'intervalle entre Maghreb et Icha qui est au moins d'une (1) heure.", 8, fy + 21);
 
             doc.save(`Ramadan_${year}_${c.t}.pdf`);
         }
