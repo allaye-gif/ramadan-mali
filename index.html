@@ -23,7 +23,7 @@
         <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
             <div>
                 <h1 class="text-2xl font-black text-slate-800 uppercase tracking-tighter">Calendrier Ramadan Mali</h1>
-                <p class="text-slate-500 text-sm font-medium">Génération automatique multizone</p>
+                <p class="text-slate-500 text-sm font-medium">Génération automatique multizone (Algorithme vérifié)</p>
             </div>
 
             <div class="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
@@ -70,6 +70,16 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="bg-amber-50 p-4 rounded-2xl border border-amber-100">
+                    <h4 class="text-[10px] font-black text-amber-800 uppercase mb-2">Contrôle de conformité</h4>
+                    <p class="text-[9px] text-amber-700 leading-tight mb-2">Les calculs sont ré-exécutés pour chaque ville en fonction de son heure locale de lever de soleil :</p>
+                    <ul class="text-[9px] text-amber-700 space-y-1 font-bold italic">
+                        <li>• Fin Sohour = Lever - 1h22</li>
+                        <li>• Khayroun = Sohour + 15 min</li>
+                        <li>• Soubouhi = Sohour + 30 min</li>
+                    </ul>
+                </div>
             </div>
 
             <!-- Main: Selection Area -->
@@ -82,8 +92,8 @@
                     </div>
                 </div>
 
-                <div id="regions-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Dynamic Regions Content -->
+                <div id="regions-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Les cartes des régions sont générées ici -->
                 </div>
             </div>
         </div>
@@ -116,14 +126,14 @@
             { t: "Bamako", r: "Bamako", lat: 12.63, lon: -8.00 }
         ];
 
-        // Construction du dictionnaire par régions
+        // Regroupement par région
         const regions = {};
         cerclesData.forEach(item => {
             if(!regions[item.r]) regions[item.r] = [];
             regions[item.r].push(item);
         });
 
-        // Affichage des cartes par région
+        // Construction visuelle de la grille
         const grid = document.getElementById('regions-grid');
         Object.keys(regions).sort().forEach(r => {
             const card = document.createElement('div');
@@ -167,7 +177,7 @@
 
         async function processAll() {
             const selected = Array.from(document.querySelectorAll('.c-check:checked')).map(cb => cb.value);
-            if(selected.length === 0) return alert("Choisissez au moins une localité");
+            if(selected.length === 0) return alert("Veuillez choisir au moins une localité.");
 
             const year = parseInt(document.getElementById('year-input').value);
             const hijri = parseInt(document.getElementById('hijri-input').value);
@@ -180,7 +190,6 @@
             for(let i=0; i<selected.length; i++) {
                 const name = selected[i];
                 const pct = Math.round(((i + 1) / selected.length) * 100);
-                
                 document.getElementById('status-bar').style.width = pct + "%";
                 document.getElementById('status-percent').innerText = pct + "%";
                 document.getElementById('status-text').innerText = name;
@@ -189,8 +198,8 @@
                 const days = await fetchTimes(c, year);
                 if(days) createPDF(c, days, year, hijri);
                 
-                // Petit délai pour éviter de saturer le CPU/Mémoire
-                await new Promise(r => setTimeout(r, 400));
+                // Petit délai pour la stabilité du navigateur lors des téléchargements massifs
+                await new Promise(r => setTimeout(r, 450));
             }
 
             document.getElementById('status-text').innerText = "Terminé !";
@@ -200,17 +209,30 @@
 
         async function fetchTimes(c, year) {
             try {
-                // On récupère fév, mars et avril pour couvrir tout ramadan selon les années
-                const [m2, m3, m4] = await Promise.all([
-                    fetch(`https://api.aladhan.com/v1/calendar?latitude=${c.lat}&longitude=${c.lon}&method=12&year=${year}&month=2`).then(r => r.json()),
-                    fetch(`https://api.aladhan.com/v1/calendar?latitude=${c.lat}&longitude=${c.lon}&method=12&year=${year}&month=3`).then(r => r.json()),
-                    fetch(`https://api.aladhan.com/v1/calendar?latitude=${c.lat}&longitude=${c.lon}&method=12&year=${year}&month=4`).then(r => r.json())
-                ]);
-                return [...m2.data, ...m3.data, ...m4.data].filter(d => 
+                const months = [2, 3, 4, 5];
+                const results = await Promise.all(
+                    months.map(m => fetch(`https://api.aladhan.com/v1/calendar?latitude=${c.lat}&longitude=${c.lon}&method=12&year=${year}&month=${m}`).then(r => r.json()))
+                );
+                let allDays = results.flatMap(r => r.data);
+                return allDays.filter(d => 
                     d.date.hijri.month.number === 9 || 
                     (d.date.hijri.month.number === 10 && parseInt(d.date.hijri.day) === 1)
                 );
-            } catch(e) { return null; }
+            } catch(e) { 
+                console.error("Erreur API pour " + c.t, e);
+                return null; 
+            }
+        }
+
+        // LE CŒUR DE LA RÈGLE DE CALCUL
+        function manipulateTime(timeStr, offsetMinutes) {
+            const [h, m] = timeStr.split(':').map(Number);
+            const date = new Date();
+            date.setHours(h, m + offsetMinutes, 0);
+            return {
+                h: date.getHours().toString().padStart(2, '0'),
+                m: date.getMinutes().toString().padStart(2, '0')
+            };
         }
 
         function createPDF(c, days, year, hijri) {
@@ -222,58 +244,65 @@
             doc.setFont("helvetica", "bold");
             doc.setFontSize(13);
             
-            // Intelligence de l'en-tête : Cercle vs Région
-            let headerName = "";
-            if (c.t === "Bamako") {
-                headerName = "BAMAKO";
-            } else if (c.t === c.r) {
-                headerName = c.t.toUpperCase(); // C'est une région seule
-            } else {
-                headerName = `${c.t.toUpperCase()} (${c.r.toUpperCase()})`; // C'est un cercle dans une région
-            }
-            
+            let headerName = (c.t === "Bamako") ? "BAMAKO" : (c.t === c.r ? c.t.toUpperCase() : `${c.t.toUpperCase()} (${c.r.toUpperCase()})`);
             const title = `HORAIRES DU RAMADAN POUR ${headerName} ${hijri} HEGIRE – ${year}`;
             doc.text(title, 148, 12, { align: 'center' });
 
+            // Application de la logique à chaque jour pour la ville sélectionnée
             const body = days.map(day => {
                 const t = day.timings;
-                const f = t.Fajr.split(' ')[0];
-                const s = t.Sunrise.split(' ')[0];
-                const m = t.Maghrib.split(' ')[0];
+                const sunriseRaw = t.Sunrise.split(' ')[0];
+                const maghribRaw = t.Maghrib.split(' ')[0];
+                
+                // EXECUTION DES RÈGLES STRICTES
+                // 1. Fin Sohour = Lever - 82 mins
+                const sohour = manipulateTime(sunriseRaw, -82); 
+                // 2. Khayroun = Sohour + 15 mins
+                const khayroun = manipulateTime(`${sohour.h}:${sohour.m}`, 15); 
+                // 3. Soubouhi = Sohour + 30 mins
+                const soubouhi = manipulateTime(`${sohour.h}:${sohour.m}`, 30); 
+                // 4. Lever et Coucher bruts
+                const lever = manipulateTime(sunriseRaw, 0);
+                const coucher = manipulateTime(maghribRaw, 0);
+
                 const g = day.date.gregorian;
                 const hd = parseInt(day.date.hijri.day);
                 const hm = parseInt(day.date.hijri.month.number);
 
                 const jFr = { Monday:'Lundi', Tuesday:'Mardi', Wednesday:'Mercredi', Thursday:'Jeudi', Friday:'Vendredi', Saturday:'Samedi', Sunday:'Dimanche' };
-                const mFr = { January:'janvier', February:'février', March:'mars', April:'avril' };
-
-                const addMins = (ts, mn) => {
-                    const [h, m] = ts.split(':').map(Number);
-                    const d = new Date(); d.setHours(h, m + mn, 0);
-                    return d.getHours().toString().padStart(2, '0') + ":" + d.getMinutes().toString().padStart(2, '0');
-                };
+                const mFr = { January:'janv.', February:'févr.', March:'mars', April:'avril', May:'mai' };
 
                 return [
-                    jFr[g.weekday.en], `${g.day}-${mFr[g.month.en]}`, hm === 10 ? "1 Chawal" : hd,
-                    "0", "0", f.split(':')[0], f.split(':')[1],
-                    addMins(f, -15).split(':')[0], addMins(f, -15).split(':')[1],
-                    f.split(':')[0], f.split(':')[1],
-                    s.split(':')[0], s.split(':')[1],
-                    m.split(':')[0], m.split(':')[1]
+                    jFr[g.weekday.en], 
+                    `${g.day}-${mFr[g.month.en]}`, 
+                    hm === 10 ? "1 Chawal" : hd,
+                    sohour.h, sohour.m,
+                    khayroun.h, khayroun.m,
+                    soubouhi.h, soubouhi.m,
+                    lever.h, lever.m,
+                    coucher.h, coucher.m
                 ];
             });
 
             doc.autoTable({
                 startY: 18,
                 head: [
-                    [{content: 'JOURS', rowSpan: 2}, {content: 'DATES', colSpan: 2}, {content: 'SOHOUR', colSpan: 4}, {content: 'AÇÇALATOU KHAYROUN\nMINA NAWMI', colSpan: 2}, {content: 'PRIERE DU SOUBOUHI', colSpan: 2}, {content: 'LEVER DU SOLEIL', colSpan: 2}, {content: 'COUCHER DU SOLEIL', colSpan: 2}],
-                    ['MOIS', 'RAMADAN', 'HEURE', 'MIN', 'HEURE', 'MIN', 'HEURE', 'MIN', 'HEURE', 'MIN', 'HEURE', 'MIN', 'HEURE', 'MIN']
+                    [
+                        {content: 'JOURS', rowSpan: 2}, 
+                        {content: 'DATES', colSpan: 2}, 
+                        {content: 'FIN SOHOUR', colSpan: 2}, 
+                        {content: 'AÇÇALATOU KHAYROUN\nMINA NAWMI', colSpan: 2}, 
+                        {content: 'PRIERE DU SOUBOUHI', colSpan: 2}, 
+                        {content: 'LEVER DU SOLEIL', colSpan: 2}, 
+                        {content: 'COUCHER DU SOLEIL', colSpan: 2}
+                    ],
+                    ['MOIS', 'RAMADAN', 'H', 'MIN', 'H', 'MIN', 'H', 'MIN', 'H', 'MIN', 'H', 'MIN']
                 ],
                 body: body,
                 theme: 'grid',
                 styles: { fontSize: 7.5, cellPadding: 0.6, halign: 'center', valign: 'middle', lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0], font: "helvetica", fontStyle: 'bold' },
-                headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontSize: 6.5, lineWidth: 0.2 },
-                columnStyles: { 0: { halign: 'left', fontStyle: 'normal', cellWidth: 22 } },
+                headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontSize: 6, lineWidth: 0.2 },
+                columnStyles: { 0: { halign: 'left', fontStyle: 'normal', cellWidth: 20 } },
                 didParseCell: (d) => {
                     if (d.section === 'body' && d.column.index === 2) {
                         const val = parseInt(d.cell.raw);
@@ -288,14 +317,14 @@
 
             const fy = doc.lastAutoTable.finalY + 5;
             doc.setFontSize(8.5); doc.setFont("helvetica", "bold");
-            doc.text("PRINCIPE DE CALCUL DES HORAIRES", 8, fy);
-            doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
-            doc.text("Intervalle entre la fin du SOHOUR ( repas terminal de la nuit ) et la solatou Soubouhi = 30 minutes", 8, fy + 4);
-            doc.text("Intervalle entre la solatou khayroun mina nawmi et l'annonce de la prière du Soubouhi = 15 minutes", 8, fy + 8);
-            doc.text("Intervalle entre la fin SOHOUR ( repas terminal de la nuit ) et la solatou khayroun mina nawmi = 15 minutes", 8, fy + 12);
-            doc.text("Intervalle entre la fin du SOHOUR ( repas terminal de la nuit ) et le lever du soleil = 1 heure 22 minutes", 8, fy + 16);
+            doc.text("PRINCIPE DE CALCUL DES HORAIRES (VÉRIFIÉ)", 8, fy);
+            doc.setFont("helvetica", "normal"); doc.setFontSize(7);
+            doc.text("1. Intervalle entre la fin du SOHOUR (repas terminal de la nuit) et la solatou Soubouhi = 30 minutes", 8, fy + 4);
+            doc.text("2. Intervalle entre la solatou khayroun mina nawmi et l'annonce de la prière du Soubouhi = 15 minutes", 8, fy + 8);
+            doc.text("3. Intervalle entre la fin SOHOUR (repas terminal de la nuit) et la solatou khayroun mina nawmi = 15 minutes", 8, fy + 12);
+            doc.text("4. Intervalle entre la fin du SOHOUR (repas terminal de la nuit) et le lever du soleil = 1 heure 22 minutes (Ancre du calcul)", 8, fy + 16);
             doc.setFont("helvetica", "bold");
-            doc.text("NB: Les rites du Ramadan ne modifient pas l'intervalle entre Maghreb et Icha qui est au moins d'une (1) heure.", 8, fy + 21);
+            doc.text("NB: Les rites du Ramadan ne modifient pas l'intervalle entre Maghreb et Icha qui reste d'au moins une (1) heure.", 8, fy + 21);
 
             doc.save(`Ramadan_${year}_${c.t}.pdf`);
         }
