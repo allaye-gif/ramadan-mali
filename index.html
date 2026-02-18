@@ -23,7 +23,7 @@
         <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
             <div>
                 <h1 class="text-2xl font-black text-slate-800 uppercase tracking-tighter">Calendrier Ramadan Mali</h1>
-                <p class="text-slate-500 text-sm font-medium">Génération automatique multizone (Algorithme vérifié)</p>
+                <p class="text-slate-500 text-sm font-medium">Système de gestion universel & manuel</p>
             </div>
 
             <div class="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
@@ -40,12 +40,22 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <!-- Sidebar: Controls & Logos -->
+            <!-- Sidebar: Controls & Configuration -->
             <div class="space-y-6">
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
                     <h3 class="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">Configuration</h3>
                     
                     <div class="space-y-4">
+                        <!-- Forcer le début du Ramadan -->
+                        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                            <label class="text-[10px] font-black text-slate-500 uppercase block mb-2">Début du Ramadan (Optionnel)</label>
+                            <input type="date" id="forced-start-date" class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500">
+                            <label class="flex items-center gap-2 mt-3 cursor-pointer">
+                                <input type="checkbox" id="include-doubt-day" class="w-3 h-3 text-emerald-600 rounded">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Inclure 29 Chaabane</span>
+                            </label>
+                        </div>
+
                         <div onclick="document.getElementById('inL').click()" class="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center cursor-pointer hover:border-emerald-500 transition-colors">
                             <span id="labelL" class="text-[10px] font-bold text-slate-400 uppercase">+ Logo Gauche</span>
                         </div>
@@ -57,7 +67,7 @@
                     </div>
 
                     <button id="btn-dl" onclick="processAll()" class="w-full mt-6 bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-emerald-600 transition-all shadow-lg active:scale-95 disabled:bg-slate-300">
-                        TÉLÉCHARGER LE(S) PDF
+                        GÉNÉRER LE(S) PDF
                     </button>
                     
                     <div id="status-box" class="hidden mt-4 p-3 bg-emerald-50 rounded-xl">
@@ -71,14 +81,9 @@
                     </div>
                 </div>
 
-                <div class="bg-amber-50 p-4 rounded-2xl border border-amber-100">
-                    <h4 class="text-[10px] font-black text-amber-800 uppercase mb-2">Algorithme Malien</h4>
-                    <ul class="text-[9px] text-amber-700 space-y-1 font-bold italic">
-                        <li>• Fin Sohour = Lever - 1h22</li>
-                        <li>• Khayroun = Sohour + 15 min</li>
-                        <li>• Soubouhi = Sohour + 30 min</li>
-                        <li class="mt-2 text-emerald-700 font-black">• Mercredi 18 Fév = 29 Chaabane</li>
-                    </ul>
+                <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                    <h4 class="text-[10px] font-black text-blue-800 uppercase mb-2">Aide</h4>
+                    <p class="text-[9px] text-blue-700 leading-tight">Laissez le champ "Début" vide pour utiliser le calcul astronomique automatique de l'API Aladhan.</p>
                 </div>
             </div>
 
@@ -106,9 +111,9 @@
         const cerclesData = [
             { t: "Kayes", r: "Kayes", lat: 14.44, lon: -11.44 }, { t: "Bafoulabé", r: "Kayes", lat: 13.81, lon: -10.83 }, { t: "Yélimané", r: "Kayes", lat: 15.12, lon: -10.56 }, { t: "Kéniéba", r: "Kayes", lat: 12.84, lon: -11.24 }, { t: "Ambidédi", r: "Kayes", lat: 14.30, lon: -11.40 }, { t: "Aourou", r: "Kayes", lat: 14.73, lon: -11.37 }, { t: "Diamou", r: "Kayes", lat: 13.96, lon: -11.00 }, { t: "Oussoubidiagna", r: "Kayes", lat: 14.12, lon: -10.15 }, { t: "Ségala", r: "Kayes", lat: 14.18, lon: -10.98 }, { t: "Sadiola", r: "Kayes", lat: 13.88, lon: -11.69 },
             { t: "Koulikoro", r: "Koulikoro", lat: 12.86, lon: -7.55 }, { t: "Banamba", r: "Koulikoro", lat: 13.55, lon: -7.45 }, { t: "Kangaba", r: "Koulikoro", lat: 11.93, lon: -8.41 }, { t: "Kati", r: "Koulikoro", lat: 12.74, lon: -8.07 }, { t: "Kolokani", r: "Koulikoro", lat: 13.57, lon: -8.03 }, { t: "Nyamina", r: "Koulikoro", lat: 13.33, lon: -7.00 }, { t: "Siby", r: "Koulikoro", lat: 12.38, lon: -8.33 }, { t: "Neguela", r: "Koulikoro", lat: 12.83, lon: -8.41 },
-            { t: "Sikasso", r: "Sikasso", lat: 11.31, lon: -5.66 }, { t: "Kadiolo", r: "Sikasso", lat: 10.55, lon: -5.75 }, { t: "Danderesso", r: "Sikasso", lat: 11.42, lon: -5.25 }, { t: "Kignan", r: "Sikasso", lat: 12.05, lon: -5.66 }, { t: "Klela", r: "Sikasso", lat: 11.43, lon: -5.46 }, { t: "Lobougoula", r: "Sikasso", lat: 11.13, lon: -5.87 }, { t: "Loulouni", r: "Sikasso", lat: 10.82, lon: -5.60 }, { t: "Niena", r: "Sikasso", lat: 11.45,イル: -6.21 },
+            { t: "Sikasso", r: "Sikasso", lat: 11.31, lon: -5.66 }, { t: "Kadiolo", r: "Sikasso", lat: 10.55, lon: -5.75 }, { t: "Danderesso", r: "Sikasso", lat: 11.42, lon: -5.25 }, { t: "Kignan", r: "Sikasso", lat: 12.05, lon: -5.66 }, { t: "Klela", r: "Sikasso", lat: 11.43, lon: -5.46 }, { t: "Lobougoula", r: "Sikasso", lat: 11.13, lon: -5.87 }, { t: "Loulouni", r: "Sikasso", lat: 10.82, lon: -5.60 }, { t: "Niena", r: "Sikasso", lat: 11.45, lon: -6.21 },
             { t: "Ségou", r: "Ségou", lat: 13.43, lon: -6.21 }, { t: "Bla", r: "Ségou", lat: 12.95, lon: -5.75 }, { t: "Baraoueli", r: "Ségou", lat: 13.08, lon: -6.83 }, { t: "Niono", r: "Ségou", lat: 14.25, lon: -5.99 }, { t: "Macina", r: "Ségou", lat: 13.96, lon: -5.35 }, { t: "Dioro", r: "Ségou", lat: 13.31, lon: -6.36 }, { t: "Farako", r: "Ségou", lat: 12.33, lon: -5.46 }, { t: "Nampala", r: "Ségou", lat: 15.28, lon: -5.43 }, { t: "Sokolo", r: "Ségou", lat: 14.73, lon: -6.01 }, { t: "Markala", r: "Ségou", lat: 13.70, lon: -6.07 }, { t: "Sarro", r: "Ségou", lat: 14.15, lon: -5.13 },
-            { t: "Mopti", r: "Mopti", lat: 14.48, lon: -4.18 }, { t: "Djenné", r: "Mopti", lat: 13.90, lon: -4.55 }, { t: "Ténenkou", r: "Mopti", lat: 14.46, lon: -4.91 }, { t: "Youwarou", r: "Mopti", lat: 15.37, lon: -4.41 }, { t: "Konna", r: "Mopti", lat: 14.80, lon: -3.89 }, { t: "Korientzé", r: "Mopti", lat: 15.11, lon: -3.85 }, { t: "Sofara", r: "Mopti", lat: 14.00, lon: -4.24 }, { t: "Toguéré-Coumbé", r: "Mopti", lat: 14.92, lon: -4.59 },
+            { t: "Mopti", r: "Mopti", lat: 14.48, lon: -4.18 }, { t: "Djenné", r: "Mopti", lat: 13.90, lon: -4.55 }, { t: "Ténenkou", r: "Mopti", lat: 14.46,イル: -4.91 }, { t: "Youwarou", r: "Mopti", lat: 15.37, lon: -4.41 }, { t: "Konna", r: "Mopti", lat: 14.80, lon: -3.89 }, { t: "Korientzé", r: "Mopti", lat: 15.11, lon: -3.85 }, { t: "Sofara", r: "Mopti", lat: 14.00, lon: -4.24 }, { t: "Toguéré-Coumbé", r: "Mopti", lat: 14.92, lon: -4.59 },
             { t: "Tombouctou", r: "Tombouctou", lat: 16.76, lon: -3.00 }, { t: "Goundam", r: "Tombouctou", lat: 16.42, lon: -3.67 }, { t: "Diré", r: "Tombouctou", lat: 16.27, lon: -3.38 }, { t: "Soumpi", r: "Tombouctou", lat: 15.84, lon: -4.12 }, { t: "Rharous", r: "Tombouctou", lat: 16.88, lon: -2.33 }, { t: "Bintagoungou", r: "Tombouctou", lat: 16.45, lon: -3.98 }, { t: "Saraféré", r: "Tombouctou", lat: 15.68, lon: -3.73 }, { t: "Bambara-Maoudé", r: "Tombouctou", lat: 15.93, lon: -2.48 }, { t: "Léré", r: "Tombouctou", lat: 15.71, lon: -4.92 }, { t: "Gossi", r: "Tombouctou", lat: 15.83, lon: -1.32 }, { t: "Tonka", r: "Tombouctou", lat: 16.14, lon: -3.81 }, { t: "Ber", r: "Tombouctou", lat: 16.92, lon: -2.47 }, { t: "Gargando", r: "Tombouctou", lat: 16.63, lon: -4.33 },
             { t: "Gao", r: "Gao", lat: 16.27, lon: -0.04 }, { t: "Bourem", r: "Gao", lat: 16.94, lon: -0.35 }, { t: "Ansongo", r: "Gao", lat: 15.66, lon: 0.50 }, { t: "Almoustrat", r: "Gao", lat: 17.50, lon: 0.15 }, { t: "Bamba", r: "Gao", lat: 17.03, lon: -1.41 }, { t: "Ouattagouna", r: "Gao", lat: 15.02, lon: 0.73 }, { t: "Sony Aliber", r: "Gao", lat: 16.33, lon: 0.05 }, { t: "Djebock", r: "Gao", lat: 16.50, lon: 0.60 }, { t: "Talataye", r: "Gao", lat: 15.75, lon: 1.00 }, { t: "Téssit", r: "Gao", lat: 15.17, lon: -0.15 }, { t: "N'tillit", r: "Gao", lat: 15.60, lon: -0.40 }, { t: "Gabéro", r: "Gao", lat: 16.03, lon: -0.13 }, { t: "Ersane", r: "Gao", lat: 17.20, lon: 0.20 }, { t: "Tabankort", r: "Gao", lat: 17.40, lon: 0.35 }, { t: "Tin-Aouker", r: "Gao", lat: 16.75, lon: 0.55 }, { t: "Kassambéré", r: "Gao", lat: 15.55, lon: -0.20 },
             { t: "Kidal", r: "Kidal", lat: 18.44, lon: 1.40 }, { t: "AbeÏbara", r: "Kidal", lat: 19.22, lon: 1.84 }, { t: "Tin-Essako", r: "Kidal", lat: 18.45, lon: 3.28 }, { t: "Tessalit", r: "Kidal", lat: 20.20, lon: 0.99 }, { t: "Achibogho", r: "Kidal", lat: 19.10, lon: 1.30 }, { t: "Anéfif", r: "Kidal", lat: 18.04, lon: 0.60 }, { t: "Timétrine", r: "Kidal", lat: 19.20, lon: 0.20 }, { t: "Aguel-Hoc", r: "Kidal", lat: 19.46, lon: 0.85 }, { t: "Takalote", r: "Kidal", lat: 18.25, lon: 1.55 },
@@ -179,6 +184,8 @@
 
             const year = parseInt(document.getElementById('year-input').value);
             const hijri = parseInt(document.getElementById('hijri-input').value);
+            const forcedDateStr = document.getElementById('forced-start-date').value;
+            const includeDoubt = document.getElementById('include-doubt-day').checked;
             const statusBox = document.getElementById('status-box');
             const btn = document.getElementById('btn-dl');
             
@@ -193,8 +200,8 @@
                 document.getElementById('status-text').innerText = name;
 
                 const c = cerclesData.find(x => x.t === name);
-                const days = await fetchTimes(c, year);
-                if(days) createPDF(c, days, year, hijri);
+                const days = await fetchTimes(c, year, forcedDateStr, includeDoubt);
+                if(days) createPDF(c, days, year, hijri, forcedDateStr);
                 await new Promise(r => setTimeout(r, 450));
             }
 
@@ -203,31 +210,30 @@
             setTimeout(() => statusBox.classList.add('hidden'), 3000);
         }
 
-        async function fetchTimes(c, year) {
+        async function fetchTimes(c, year, forcedDateStr, includeDoubt) {
             try {
                 const months = [2, 3, 4, 5];
                 const results = await Promise.all(
-                    months.map(m => fetch(`https://api.aladhan.com/v1/calendar?latitude=${c.lat}&longitude=${c.lon}&method=12&year=${year}&month=${m}&adjustment=-1`).then(r => r.json()))
+                    months.map(m => fetch(`https://api.aladhan.com/v1/calendar?latitude=${c.lat}&longitude=${c.lon}&method=12&year=${year}&month=${m}`).then(r => r.json()))
                 );
                 let allDays = results.flatMap(r => r.data);
                 
-                // On identifie l'index du 18 février 2026 précisément
-                const transitionIdx = allDays.findIndex(d => parseInt(d.date.gregorian.month.number) === 2 && parseInt(d.date.gregorian.day) === 18);
+                let startIndex = -1;
                 
-                if (transitionIdx === -1) return null;
+                if (forcedDateStr) {
+                    const [fY, fM, fD] = forcedDateStr.split('-').map(Number);
+                    startIndex = allDays.findIndex(d => {
+                        const g = d.date.gregorian;
+                        return parseInt(g.year) === fY && parseInt(g.month.number) === fM && parseInt(g.day) === fD;
+                    });
+                } else {
+                    startIndex = allDays.findIndex(d => parseInt(d.date.hijri.month.number) === 9 && parseInt(d.date.hijri.day) === 1);
+                }
 
-                // On filtre pour démarrer au 18 février et s'arrêter après le 1er Chawal
-                return allDays.filter((d, idx) => {
-                    const gD = parseInt(d.date.gregorian.day);
-                    const gM = parseInt(d.date.gregorian.month.number);
-                    const hM = parseInt(d.date.hijri.month.number);
-                    const hD = parseInt(d.date.hijri.day);
-
-                    // Garder uniquement à partir du 18 Fév, tout le Ramadan (9), et le 1er Chawal (10)
-                    if (year === 2026 && (gM < 2 || (gM === 2 && gD < 18))) return false;
-                    
-                    return (idx === transitionIdx) || (hM === 9) || (hM === 10 && hD === 1);
-                });
+                if (startIndex === -1) return null;
+                const actualStart = includeDoubt ? startIndex - 1 : startIndex;
+                
+                return allDays.slice(Math.max(0, actualStart), Math.max(0, actualStart) + 31);
             } catch(e) { return null; }
         }
 
@@ -241,7 +247,7 @@
             };
         }
 
-        function createPDF(c, days, year, hijri) {
+        function createPDF(c, days, year, hijri, forcedDateStr) {
             const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
             
             if(logoL) doc.addImage(logoL, 'PNG', 10, 5, 22, 11);
@@ -254,7 +260,21 @@
             const title = `HORAIRES DU RAMADAN POUR ${headerName} ${hijri} HEGIRE – ${year}`;
             doc.text(title, 148, 12, { align: 'center' });
 
-            const body = days.map((day, index) => {
+            let refDate = null;
+            if (forcedDateStr) {
+                refDate = new Date(forcedDateStr);
+            } else {
+                const firstRam = days.find(d => parseInt(d.date.hijri.month.number) === 9);
+                if(firstRam) {
+                    const g = firstRam.date.gregorian;
+                    refDate = new Date(g.year, g.month.number - 1, g.day);
+                } else {
+                    const g = days[0].date.gregorian;
+                    refDate = new Date(g.year, g.month.number - 1, g.day);
+                }
+            }
+
+            const body = days.map((day) => {
                 const t = day.timings;
                 const sunriseRaw = t.Sunrise.split(' ')[0];
                 const maghribRaw = t.Maghrib.split(' ')[0];
@@ -266,26 +286,20 @@
                 const coucher = manipulateTime(maghribRaw, 0);
 
                 const g = day.date.gregorian;
-                const gD = parseInt(g.day);
-                const gM = parseInt(g.month.number);
-                const hM = parseInt(day.date.hijri.month.number);
+                const currentDate = new Date(g.year, g.month.number - 1, g.day);
+                const diffTime = currentDate - refDate;
+                const diffDays = Math.round(diffTime / (1000 * 3600 * 24)) + 1;
 
                 const jFr = { Monday:'Lundi', Tuesday:'Mardi', Wednesday:'Mercredi', Thursday:'Jeudi', Friday:'Vendredi', Saturday:'Samedi', Sunday:'Dimanche' };
                 const mFr = { January:'janvier', February:'février', March:'mars', April:'avril', May:'mai' };
 
-                // LOGIQUE DE DÉCALAGE INTELLIGENTE
                 let ramadanCol = "";
-                if (year === 2026 && gM === 2 && gD === 18) {
+                if (diffDays === 0) {
                     ramadanCol = "29 Chaabane";
-                } else if (hM === 10) {
+                } else if (diffDays > 0 && diffDays <= 30) {
+                    ramadanCol = diffDays;
+                } else if (diffDays > 30) {
                     ramadanCol = "1 Chawal";
-                } else {
-                    // On recalcule le numéro du jour de Ramadan pour être sûr de la suite (1, 2, 3...)
-                    // Si on est après le 18 Fév, le 19 Fév est le jour 1.
-                    const startDate = new Date(2026, 1, 19); // 19 Fév
-                    const current = new Date(2026, gM - 1, gD);
-                    const diff = Math.round((current - startDate) / (1000 * 3600 * 24)) + 1;
-                    ramadanCol = diff > 0 ? diff : day.date.hijri.day;
                 }
 
                 return [
@@ -298,7 +312,7 @@
                     lever.h, lever.m,
                     coucher.h, coucher.m
                 ];
-            });
+            }).filter(row => row[2] !== "");
 
             doc.autoTable({
                 startY: 18,
@@ -323,15 +337,8 @@
                     if (d.section === 'body' && d.column.index === 2) {
                         const raw = String(d.cell.raw);
                         const val = parseInt(raw);
-                        
-                        // Coloration verte stricte : 29 Chaabane, 1, 2, 29, 30
-                        const isGreen = raw === "29 Chaabane" || 
-                                       (val === 1 && !raw.includes("Chawal")) || 
-                                       (val === 2) || 
-                                       (val === 29) || 
-                                       (val === 30);
-                                       
-                        if (isGreen) {
+                        const isGreen = raw.includes("Chaabane") || val === 1 || val === 2 || val === 29 || val === 30;
+                        if (isGreen && !raw.includes("Chawal")) {
                             d.cell.styles.fillColor = [118, 147, 60]; 
                             d.cell.styles.textColor = [255, 255, 255];
                         }
